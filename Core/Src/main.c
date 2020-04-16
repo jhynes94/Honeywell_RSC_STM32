@@ -99,10 +99,13 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	HAL_SPI_DeInit(&hspi1);
+	DrvSPIInit();
 	while (1)
 	{
-
-	DrvSPIInit();
+	float asd = get_temperature();
+	float presasd = get_pressure();
+	HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

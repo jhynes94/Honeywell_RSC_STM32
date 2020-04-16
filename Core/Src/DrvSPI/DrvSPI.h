@@ -27,6 +27,9 @@
 //extern SPI_HandleTypeDef hspi4;
 //extern SPI_HandleTypeDef hspi5;
 
+static void SPI_Init_EEPROM(void);
+static void SPI_Init_ADC(void);
+
 #define CS_EE_Pin SPI1_CS_EE_Pin
 #define CS_EE_Port SPI1_CS_EE_GPIO_Port
 #define CS_ADC_Pin SPI1_CS_ADC_Pin
