@@ -44,53 +44,60 @@ void DrvSPIInit() {
 }
 
 float get_pressure() {
-  // reads uncompensated pressure from ADC, then use temperature reading to convert it to compensated pressure
-  // refer to datasheet section 3.6 ADC Programming and Read Sequence – Pressure Reading
+	  // reads uncompensated pressure from ADC, then use temperature reading to convert it to compensated pressure
+	  // refer to datasheet section 3.6 ADC Programming and Read Sequence – Pressure Reading
 
-  // read the 24 bits uncompensated pressure
-  uint8_t sec_arr[4]={0};
-  adc_read(PRESSURE, sec_arr);
+	  // read the 24 bits uncompensated pressure
+	  uint8_t sec_arr[4] = {0};
+	  adc_read(PRESSURE, sec_arr);
+	  int32_t p_raw = ((uint32_t)sec_arr[0] << 24) | ((uint32_t)sec_arr[1] << 16) | ((uint32_t)sec_arr[2] << 8);
+	  p_raw /= 256; // this make sure that the sign of p_raw is the same as that of the 24-bit reading
+
+	//Outputmax = output at max. pressure [counts]
+	//Outputmin = output at min. pressure [counts]
+	//Pressuremax = max. value of pressure range [bar, psi, kPa, etc.]
+	//Pressuremin = min. value of pressure range [bar, psi, kPa, etc.]
+	//Pressure = pressure reading [bar, psi, kPa, etc.]
+	//Output = digital pressure reading [counts]
+	//(output - _output_Min)*_pressure_range
 
 
-  uint32_t Justins_raw_Pressure = (sec_arr[1]<<8)|(sec_arr[2]);
+	  // calculate compensated pressure
+	  // refer to datasheet section 1.3 Compensation Mathematics
+	  float x = (_coeff_matrix[0][3] * _t_raw * _t_raw * _t_raw);
+	  float y = (_coeff_matrix[0][2] * _t_raw * _t_raw);
+	  float z = (_coeff_matrix[0][1] * _t_raw);
+	  float p_int1 = p_raw - (x + y + z + _coeff_matrix[0][0]);
 
-  uint32_t p_raw = (sec_arr[1]<<16)|(sec_arr[2]<<8)|sec_arr[3];
+	  x = (_coeff_matrix[1][3] * _t_raw * _t_raw * _t_raw);
+	  y = (_coeff_matrix[1][2] * _t_raw * _t_raw);
+	  z = (_coeff_matrix[1][1] * _t_raw);
+	  float p_int2 = p_int1 / (x + y + z + _coeff_matrix[1][0]);
 
-  uint32_t t_raw = 25;
-  float x = (_coeff_matrix[0][3]*t_raw*t_raw*t_raw);
-  float y = (_coeff_matrix[0][2]*t_raw*t_raw);
-  float z = (_coeff_matrix[0][1]*t_raw);
-  float p_int1 = p_raw - (x + y + z + _coeff_matrix[0][0]);
+	  x = (_coeff_matrix[2][3] * p_int2 * p_int2 * p_int2);
+	  y = (_coeff_matrix[2][2] * p_int2 * p_int2);
+	  z = (_coeff_matrix[2][1] * p_int2);
+	  float p_comp_fs = x + y + z + _coeff_matrix[2][0];
 
-  x = (_coeff_matrix[1][3]*t_raw*t_raw*t_raw);
-  y = (_coeff_matrix[1][2]*t_raw*t_raw);
-  z = (_coeff_matrix[1][1]*t_raw);
-  float p_int2 = p_int1/(x + y + z + _coeff_matrix[1][0]);
+	  float p_comp = (p_comp_fs * _pressure_range) + _pressure_minimum;
 
-  x = (_coeff_matrix[2][3]*p_int2*p_int2*p_int2);
-  y = (_coeff_matrix[2][2]*p_int2*p_int2);
-  z = (_coeff_matrix[2][1]*p_int2);
-  float p_comp_fs = x + y + z + _coeff_matrix[2][0];
-
-  float p_comp = (p_comp_fs*_pressure_range) + _pressure_minimum;
-
-  return p_comp;
+	  return p_comp;
 }
 
 float get_temperature() {
-  // reads temperature from ADC, stores raw value in sensor object, but returns the temperature in Celsius
-  // refer to datasheet section 3.5 ADC Programming and Read Sequence – Temperature Reading
+	// reads temperature from ADC, stores raw value in sensor object, but returns the temperature in Celsius
+	// refer to datasheet section 3.5 ADC Programming and Read Sequence – Temperature Reading
 
-  uint8_t sec_arr[4] = {0};
+	uint8_t sec_arr[3] = {0};
 
-  adc_read(TEMPERATURE, sec_arr);
+	adc_read(TEMPERATURE, sec_arr);
 
-  // first 14 bits represent temperature
-  // following 10 bits are random thus discarded
-  _t_raw = (((int32_t)sec_arr[1] << 8) | (int32_t)sec_arr[2]) >> 2;
-  float temp = _t_raw * 0.03125;
+	// first 14 bits represent temperature
+	// following 10 bits are random thus discarded
+	_t_raw = (((int32_t)sec_arr[0] << 8) | (int32_t)sec_arr[1]) >> 2;
+	float temp = _t_raw * 0.03125;
 
-  return temp;
+	return temp;
 }
 
 void set_data_rate(RSC_DATA_RATE dr) {
